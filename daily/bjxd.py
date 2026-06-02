@@ -49,6 +49,9 @@ class BeiJingHyundai:
     API_QUESTION_INFO = "/v1/app/special/daily/ask_info"
     API_QUESTION_SUBMIT = "/v1/app/special/daily/ask_answer"
 
+    # 调试开关：True 时输出详细 API 调试信息，False 时只输出简洁日志
+    DEBUG = False
+
     # 预设的备用 share_user_hid 列表
     BACKUP_HIDS = [
         "a6688ec1a9ee429fa7b68d50e0c92b1f",
@@ -97,7 +100,12 @@ class BeiJingHyundai:
             Dict[str, Any]: API响应数据
         """
         url = f"{self.BASE_URL}{endpoint}"
-        headers = {"token": self.token, "device": "iOS", "app-version": "8.31.2"}
+        headers = {
+            "token": self.token,
+            "device": "android",
+            "app-version": "8.31.1",
+            "User-Agent": "okhttp/3.12.12"
+        }
         if "headers" not in kwargs:
             kwargs["headers"] = headers
         else:
@@ -118,7 +126,7 @@ class BeiJingHyundai:
             Dict[str, Any]: 用户信息字典，获取失败返回空字典
         """
         response = self.make_request("GET", self.API_USER_INFO)
-        print(f"get_user_info API response ——> {response}")
+        if self.DEBUG: print(f"get_user_info API response ——> {response}")
 
         if response.get("code") == 0:
             data = response.get("data", {})
@@ -141,7 +149,7 @@ class BeiJingHyundai:
         """显示积分详情，包括总积分、今日变动和最近记录"""
         params = {"page_no": "1", "page_size": "10"}  # 获取最近10条记录
         response = self.make_request("GET", self.API_MY_SCORE, params=params)
-        print(f"get_score_details API response ——> {response}")
+        if self.DEBUG: print(f"get_score_details API response ——> {response}")
 
         if response.get("code") == 0:
             data = response.get("data", {})
@@ -175,7 +183,7 @@ class BeiJingHyundai:
     def check_task_status(self, user: Dict[str, Any]) -> None:
         """检查任务状态"""
         response = self.make_request("GET", self.API_TASK_LIST)
-        print(f"get_task_status API response ——> {response}")
+        if self.DEBUG: print(f"get_task_status API response ——> {response}")
 
         if response.get("code") != 0:
             self.log(f'❌ 获取任务列表失败: {response.get("msg", "未知错误")}')
@@ -210,7 +218,7 @@ class BeiJingHyundai:
 
         for attempt in range(max_attempts):
             response = self.make_request("GET", self.API_SIGN_LIST)
-            print(f"get_sign_info (attempt {attempt + 1}) API response ——> {response}")
+            if self.DEBUG: print(f"get_sign_info (attempt {attempt + 1}) API response ——> {response}")
 
             if response.get("code") != 0:
                 self.log(f'❌ 获取签到列表失败: {response.get("msg", "未知错误")}')
@@ -223,21 +231,22 @@ class BeiJingHyundai:
             for item in data.get("list", []):
                 if item.get("hid") == hid:
                     current_score = item.get("score", 0)
-                    print(
-                        f"第{attempt + 1}次获取签到列表: score={current_score} hid={hid} rewardHash={reward_hash}"
-                    )
+                    if self.DEBUG:
+                        print(
+                            f"第{attempt + 1}次获取签到列表: score={current_score} hid={hid} rewardHash={reward_hash}"
+                        )
 
                     if current_score > best_score:
                         best_score = current_score
                         best_params = (hid, reward_hash, current_score)
-                    print(f"当前可获得签到积分: {best_score}")
+                    if self.DEBUG: print(f"当前可获得签到积分: {best_score}")
                     break
 
             if attempt < max_attempts - 1:  # 不是最后一次循环
-                print(f"继续尝试获取更高积分, 延时5-10s")
+                if self.DEBUG: print(f"继续尝试获取更高积分, 延时5-10s")
                 time.sleep(random.randint(5, 10))
             else:  # 最后一次循环 即将提交签到
-                print(f"即将提交签到, 延时3-4s")
+                if self.DEBUG: print(f"即将提交签到, 延时3-4s")
                 time.sleep(random.randint(3, 4))
 
         if best_params:
@@ -254,7 +263,7 @@ class BeiJingHyundai:
             "ctu_token": None,
         }
         response = self.make_request("POST", self.API_SIGN_SUBMIT, json=json_data)
-        print(f"submit_sign API response ——> {response}")
+        if self.DEBUG: print(f"submit_sign API response ——> {response}")
 
         if response.get("code") == 0:
             self.log(f"✅ 签到成功 | 积分 +{score}")
@@ -270,7 +279,7 @@ class BeiJingHyundai:
             "type_hid": "",
         }
         response = self.make_request("GET", self.API_ARTICLE_LIST, params=params)
-        print(f"get_article_list API response ——> {response}")
+        if self.DEBUG: print(f"get_article_list API response ——> {response}")
 
         if response.get("code") == 0:
             # 从文章列表中随机选择3个ID
@@ -306,7 +315,7 @@ class BeiJingHyundai:
         response = self.make_request(
             "POST", self.API_ARTICLE_SCORE_SUBMIT, json=json_data
         )
-        print(f"submit_article_score API response ——> {response}")
+        if self.DEBUG: print(f"submit_article_score API response ——> {response}")
 
         if response.get("code") == 0:
             data = response.get("data", {})
@@ -320,7 +329,7 @@ class BeiJingHyundai:
         """执行答题任务"""
         params = {"date": datetime.now().strftime("%Y%m%d")}
         response = self.make_request("GET", self.API_QUESTION_INFO, params=params)
-        print(f"get_question_info API response ——> {response}")
+        if self.DEBUG: print(f"get_question_info API response ——> {response}")
         if response.get("code") != 0:
             self.log(f'❌ 获取问题失败: {response.get("msg", "未知错误")}')
             return
@@ -351,9 +360,9 @@ class BeiJingHyundai:
                 valid_options.append(option)
                 question_str += f'{option.get("option", "")}. {option.get("option_content", "")}\n'
             else:
-                print(f"跳过错误选项 {option.get('option', '')}. {option.get('option_content', '')}")
+                if self.DEBUG: print(f"跳过错误选项 {option.get('option', '')}. {option.get('option_content', '')}")
 
-        print(f"\n问题详情:\n{question_str}")
+        if self.DEBUG: print(f"\n问题详情:\n{question_str}")
 
         # 如果只剩一个选项，直接使用
         if len(valid_options) == 1:
@@ -397,17 +406,17 @@ class BeiJingHyundai:
                 extra_params = json.loads(self.ai_request_params)
                 json_data.update(extra_params)
             except json.JSONDecodeError as e:
-                print(f"❌ AI 请求参数解析失败: {str(e)}")
+                if self.DEBUG: print(f"❌ AI 请求参数解析失败: {str(e)}")
 
         try:
-            print(f"通用 AI API request ——> {json_data}")
+            if self.DEBUG: print(f"通用 AI API request ——> {json_data}")
             response = requests.post(
                 self.ai_request_url,
                 headers=headers,
                 json=json_data,
             )
-            print(f"通用 AI API response status ——> {response.status_code}")
-            print(f"通用 AI API response text ——> {response.text}")
+            if self.DEBUG: print(f"通用 AI API response status ——> {response.status_code}")
+            if self.DEBUG: print(f"通用 AI API response text ——> {response.text}")
             response.raise_for_status()
             response_json = response.json()
 
@@ -471,7 +480,7 @@ class BeiJingHyundai:
         """从已答题账号获取答案"""
         params = {"date": datetime.now().strftime("%Y%m%d")}
         response = self.make_request("GET", self.API_QUESTION_INFO, params=params)
-        print(f"get_answered_question API response ——> {response}")
+        if self.DEBUG: print(f"get_answered_question API response ——> {response}")
         if response.get("code") != 0:
             self.log(f'❌ 从已答题账号获取问题失败: {response.get("msg", "未知错误")}')
             return
@@ -500,7 +509,7 @@ class BeiJingHyundai:
             json_data["share_user_hid"] = share_user_hid
 
         response = self.make_request("POST", self.API_QUESTION_SUBMIT, json=json_data)
-        print(f"submit_question_answer API response ——> {response}")
+        if self.DEBUG: print(f"submit_question_answer API response ——> {response}")
 
         if response.get("code") == 0:
             data = response.get("data", {})
@@ -533,9 +542,9 @@ class BeiJingHyundai:
         try:
             from dotenv import load_dotenv
             load_dotenv()
-            print("✅ dotenv 成功加载 .env 文件")
+            if self.DEBUG: print("✅ dotenv 成功加载 .env 文件")
         except ImportError:
-            print("⚠️ 缺少 dotenv 库, 青龙环境请忽略, 本地运行请安装此库")
+            if self.DEBUG: print("⚠️ 缺少 dotenv 库, 青龙环境请忽略, 本地运行请安装此库")
 
         # 使用列表保持顺序，使用集合实现去重
         tokens = []
@@ -654,7 +663,7 @@ class BeiJingHyundai:
 
             # 随机延迟
             if i > 1:
-                print("\n进行下一个账号, 等待 5-10 秒...")
+                if self.DEBUG: print("\n进行下一个账号, 等待 5-10 秒...")
                 time.sleep(random.randint(5, 10))
 
             self.log(f"\n======== ▷ 第 {i} 个账号 ◁ ========")
@@ -718,7 +727,7 @@ class BeiJingHyundai:
         self.log("\n============ 积分详情 ============")
         for i, user in enumerate(self.users, 1):
             if i > 1:
-                print("\n进行下一个账号, 等待 5-10 秒...")
+                if self.DEBUG: print("\n进行下一个账号, 等待 5-10 秒...")
                 time.sleep(random.randint(5, 10))
 
             # 更新当前用户信息
