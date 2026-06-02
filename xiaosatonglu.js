@@ -339,6 +339,7 @@ class UserInfo {
     rsa_encrypt(data) {
         //创建RSA加密对象
         global["window"] = {}
+        global.self = global;  // 修复 Node.js 环境缺少 self 的问题
         const JSEncrypt = require("jsencrypt")
         var encrypt = new JSEncrypt();
         //设置公钥
